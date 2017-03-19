@@ -22,7 +22,7 @@ public struct SortedImportsRule: ConfigurationProviderRule, OptInRule, Correctab
             "import AAA\nimport BBB\nimport CCC\nimport DDD"
         ],
         triggeringExamples: [
-            "import AAA\nimport ZZZ\nimport ↓BBB\nimport CCC"
+            "import AAA\nimport ↓ZZZ\nimport ↓BBB\nimport ↓CCC"
         ]
     )
 
