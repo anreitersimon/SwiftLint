@@ -72,6 +72,9 @@
   have an explicit type interface.  
   [Kim de Vos](https://github.com/kimdv)
 
+* Make `sorted_imports` rule correctable.  
+  [Anreiter Simon](https://github.com/anreitersimon)
+
 ##### Bug Fixes
 
 * Fix crashes when accessing cached regular expressions when linting in
@@ -316,7 +319,7 @@
   [Marcelo Fabri](https://github.com/marcelofabri)
   [#973](https://github.com/realm/SwiftLint/issues/973)
 
-* Add `unused_optional_binding` rule that will check for optional bindings 
+* Add `unused_optional_binding` rule that will check for optional bindings
   not being used.  
   [Rafael Machado](https://github.com/rakaramos/)
   [#1116](https://github.com/realm/SwiftLint/issues/1116)
