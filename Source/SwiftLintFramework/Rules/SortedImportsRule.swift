@@ -9,7 +9,7 @@
 import Foundation
 import SourceKittenFramework
 
-public struct SortedImportsRule: ConfigurationProviderRule, OptInRule {
+public struct SortedImportsRule: ConfigurationProviderRule, OptInRule, CorrectableRule {
     public var configuration = SeverityConfiguration(.warning)
 
     public init() {}
@@ -26,29 +26,65 @@ public struct SortedImportsRule: ConfigurationProviderRule, OptInRule {
         ]
     )
 
-    public func validate(file: File) -> [StyleViolation] {
+    public func modulesAndRanges(file: File) -> [(module: String, range: NSRange)] {
         let importRanges = file.match(pattern: "import\\s+\\w+", with: [.keyword, .identifier])
         let contents = file.contents.bridge()
 
-        let importLength = 6
-        let modulesAndOffsets: [(String, Int)] = importRanges.map { range in
-            let moduleRange = NSRange(location: range.location + importLength,
-                                      length: range.length - importLength)
+        let importAndSpaceLength = 7
+
+        return importRanges.map { range in
+            let moduleRange = NSRange(location: range.location + importAndSpaceLength,
+                                      length: range.length - importAndSpaceLength)
             let moduleName = contents.substring(with: moduleRange)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            let offset = NSMaxRange(range) - moduleName.bridge().length
-            return (moduleName, offset)
+            return (moduleName, moduleRange)
+        }
+    }
+
+    public func validate(file: File) -> [StyleViolation] {
+
+        let modulesAndRanges = self.modulesAndRanges(file: file)
+        let sortedModulesAndRanges = modulesAndRanges.sorted {
+            $0.module.localizedCompare($1.module) == .orderedAscending
         }
 
-        let modulePairs = zip(modulesAndOffsets, modulesAndOffsets.dropFirst())
-        let violatingOffsets = modulePairs.flatMap { previous, current in
-            return current < previous ? current.1 : nil
+        return zip(modulesAndRanges, sortedModulesAndRanges)
+            .filter { $0.module != $1.module }
+            .map { (unsorted, _) in
+                return StyleViolation(
+                    ruleDescription: type(of: self).description,
+                    severity: configuration.severity,
+                    location: Location(
+                        file: file,
+                        characterOffset: unsorted.range.location
+                    )
+                )
+        }
+    }
+
+    public func correct(file: File) -> [Correction] {
+
+        let modulesAndRanges = self.modulesAndRanges(file: file)
+        let sortedModulesAndRanges = modulesAndRanges.sorted {
+            $0.module.localizedCompare($1.module) == .orderedAscending
         }
 
-        return violatingOffsets.map {
-            StyleViolation(ruleDescription: type(of: self).description,
-                           severity: configuration.severity,
-                           location: Location(file: file, characterOffset: $0))
+        var correctedContents = file.contents
+        var corrections: [Correction] = []
+
+        let violations = zip(modulesAndRanges, sortedModulesAndRanges).filter { $0.module != $1.module }
+
+        for (unsorted, sorted) in violations.reversed() {
+            correctedContents = correctedContents.bridge().replacingCharacters(in: unsorted.range, with: sorted.module)
+            corrections.append(Correction( ruleDescription: type(of: self).description,
+                                           location: Location(file: file, characterOffset: unsorted.range.location)))
+
         }
+
+        if !corrections.isEmpty {
+            file.write(correctedContents)
+        }
+
+        return corrections
     }
 }
